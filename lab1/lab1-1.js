@@ -2,7 +2,7 @@ const VSHADER_SOURCE = `
   attribute vec4 a_Position;
   void main() {
     gl_Position = a_Position;
-    gl_PointSize = 5.0;
+    gl_PointSize = 6.0;
   }
 `
 
@@ -23,8 +23,26 @@ function main() {
   if (!initShaders(gl, VSHADER_SOURCE, FSHADER_SOURCE)) {
     throw new Error("Failed to intialize shaders") 
   }
-  gl.clearColor(0.0, 0.0, 0.0, 1.0)
+  gl.clearColor(1.0, 1.0, 1.0, 1.0)
   gl.clear(gl.COLOR_BUFFER_BIT)
+
+  const BLACK = [0.0, 0.0, 0.0, 1.0]
+  const GREEN = [0.4, 0.9, 0.3, 1.0]
+
+  const grid = new Float32Array([
+    -0.33,  1.0,   -0.33, -1.0,
+     0.33,  1.0,    0.33, -1.0,
+    -1.0,   0.33,   1.0,   0.33,
+    -1.0,  -0.33,   1.0,  -0.33
+  ])
+  const border = new Float32Array([
+    -0.99,  0.99,
+     0.99,  0.99,
+     0.99, -0.99,
+    -0.99, -0.99
+  ])
+  drawShape(gl, gl.LINES, BLACK, grid)
+  drawShape(gl, gl.LINE_LOOP, BLACK, border)
 
   const shape = new Float32Array([
     -0.07,  0.14,
@@ -62,19 +80,46 @@ function main() {
     shapes.push(moved)
   }
   for (let i = 0; i < shapes.length; i++) {
+    let verts = shapes[i]
+    // the shape that needed to have it's vertices re-ordered
     if (i === 5) {
-      let arr = new Float32Array([
-        shapes[i][2],  shapes[i][3], 
-        shapes[i][4],  shapes[i][5], 
+      verts = new Float32Array([
+        shapes[i][2],  shapes[i][3],
+        shapes[i][4],  shapes[i][5],
         shapes[i][0],  shapes[i][1],
-        shapes[i][6],  shapes[i][7], 
-        shapes[i][10], shapes[i][11],  
-        shapes[i][8],  shapes[i][9]])  
-        drawShape(gl, modes[i], [0.0, 1.0, 0.0, 1.0], arr)
-        continue
+        shapes[i][6],  shapes[i][7],
+        shapes[i][10], shapes[i][11],
+        shapes[i][8],  shapes[i][9]])
     }
 
-    drawShape(gl, modes[i], [0.0, 1.0, 0.0, 1.0], shapes[i])
+    if (i >= 4) {
+      drawShape(gl, modes[i], GREEN, verts)
+      drawTriangleEdges(gl, modes[i], BLACK, verts)
+    } else {
+      drawShape(gl, modes[i], BLACK, verts)
+    }
+    drawShape(gl, gl.POINTS, BLACK, verts)
+  }
+}
+
+function drawTriangleEdges(gl, mode, color, vertices) {
+  const n = vertices.length / 2
+  const triangles = []
+  if (mode === gl.TRIANGLES) {
+    for (let k = 0; k + 2 < n; k += 3) triangles.push([k, k + 1, k + 2])
+  } else if (mode === gl.TRIANGLE_STRIP) {
+    for (let k = 0; k + 2 < n; k++) triangles.push([k, k + 1, k + 2])
+  } else if (mode === gl.TRIANGLE_FAN) {
+    for (let k = 1; k + 1 < n; k++) triangles.push([0, k, k + 1])
+  }
+
+  for (const [a, b, c] of triangles) {
+    const corners = new Float32Array([
+      vertices[2 * a], vertices[2 * a + 1],
+      vertices[2 * b], vertices[2 * b + 1],
+      vertices[2 * c], vertices[2 * c + 1]
+    ])
+    drawShape(gl, gl.LINE_LOOP, color, corners)
   }
 }
 
