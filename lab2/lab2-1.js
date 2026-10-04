@@ -49,6 +49,9 @@ function main() {
     const MIN_REVOLUTIONS = 1
     const MAX_REVOLUTIONS = 8
 
+    const MIN_ITERATIONS = 0
+    const MAX_ITERATIONS = 7
+
     const ANGLE_STEP = 10.0
 
     let scene = 1
@@ -56,12 +59,16 @@ function main() {
     let squareAngle = 0.0
     let revolutions = 2
     let spiralAngle = 0.0
+    let iterations = 2
+    let triangleAngle = 0.0
 
   function draw() {
     if (scene === 1) {
       drawLevels(gl, currLevel, squareLevels, squareAngle)
-    } else {
+    } else if (scene === 2) {
       drawSpiral(gl, revolutions, spiralAngle)
+    } else {
+      drawSierpinski(gl, iterations, triangleAngle)
     }
   }
 
@@ -70,7 +77,7 @@ function main() {
   document.addEventListener('keydown', (event) => {
     if (event.key === ' ') {
       event.preventDefault()
-      scene = (scene % 2) + 1
+      scene = (scene % 3) + 1
     } else if (scene === 1) {
       if (event.key === 'ArrowUp') {
         currLevel = Math.min(currLevel + 1, MAX_LEVEL)
@@ -90,6 +97,16 @@ function main() {
         spiralAngle = (spiralAngle + ANGLE_STEP) % 360
       } else if (event.key === 'ArrowRight') {
         spiralAngle = (spiralAngle - ANGLE_STEP) % 360
+      }
+    } else if (scene === 3) {
+      if (event.key === 'ArrowUp') {
+        iterations = Math.min(iterations + 1, MAX_ITERATIONS)
+      } else if (event.key === 'ArrowDown') {
+        iterations = Math.max(iterations - 1, MIN_ITERATIONS)
+      } else if (event.key === 'ArrowLeft') {
+        triangleAngle = (triangleAngle + ANGLE_STEP) % 360
+      } else if (event.key === 'ArrowRight') {
+        triangleAngle = (triangleAngle - ANGLE_STEP) % 360
       }
     }
     draw()
@@ -114,6 +131,13 @@ function setRotation(gl, angle, axis) {
        0.0, 1.0,   0.0, 0.0,
       sinB, 0.0,  cosB, 0.0,
        0.0, 0.0,   0.0, 1.0
+    ])
+  } else if (axis === 'x') {
+    xformMatrix = new Float32Array([
+      1.0,   0.0,  0.0, 0.0,
+      0.0,  cosB, sinB, 0.0,
+      0.0, -sinB, cosB, 0.0,
+      0.0,   0.0,  0.0, 1.0
     ])
   }
   const u_xformMatrix = gl.getUniformLocation(gl.program, 'u_xformMatrix')
@@ -155,6 +179,7 @@ function drawLevels(gl, currLevel, squareLevels, angle) {
   }
 }
 
+// Archimedean spiral
 function drawSpiral(gl, revolutions, angle) {
   const CENTER_COLOR = [0.0, 0.05, 0.3]
   const EDGE_COLOR = [0.3, 0.7, 1.0]
@@ -184,6 +209,83 @@ function drawSpiral(gl, revolutions, angle) {
 
   setRotation(gl, angle, 'y')
   drawShape(gl, gl.LINE_STRIP, vertices, colors)
+}
+
+function drawSierpinski(gl, iterations, angle) {
+  const SIDE = 1.7
+  const height = SIDE * Math.sqrt(3) / 2
+
+  const top = [0.0, height / 2]
+  const left = [-SIDE / 2, -height / 2]
+  const right = [SIDE / 2, -height / 2]
+
+  const vertices = []
+  const colors = []
+  buildSierpinski(top, left, right, iterations, [], vertices, colors)
+
+  gl.clear(gl.COLOR_BUFFER_BIT)
+
+  drawBorder(gl)
+
+  setRotation(gl, angle, 'x')
+  drawShape(gl, gl.TRIANGLES, new Float32Array(vertices), new Float32Array(colors))
+}
+
+function buildSierpinski(top, left, right, depth, path, vertices, colors) {
+  if (depth === 0) {
+    const color = getSierpinskiColor(path)
+    vertices.push(top[0], top[1])
+    vertices.push(left[0], left[1])
+    vertices.push(right[0], right[1])
+    for (let i = 0; i < 3; i++) {
+      colors.push(color[0], color[1], color[2], 1.0)
+    }
+    return
+  }
+
+  const topLeft = midpoint(top, left)
+  const topRight = midpoint(top, right)
+  const bottom = midpoint(left, right)
+
+  path.push(0)
+  buildSierpinski(top, topLeft, topRight, depth - 1, path, vertices, colors)
+  path.pop()
+
+  path.push(1)
+  buildSierpinski(topLeft, left, bottom, depth - 1, path, vertices, colors)
+  path.pop()
+
+  path.push(2)
+  buildSierpinski(topRight, bottom, right, depth - 1, path, vertices, colors)
+  path.pop()
+}
+
+function getSierpinskiColor(path) {
+  const GRAY = [0.33, 0.35, 0.38]
+  const BASE_COLORS = [
+    [0.15, 0.3, 0.55],
+    [0.5, 0.1, 0.1],
+    [0.18, 0.38, 0.18]
+  ]
+  const LIGHTEN = [0.0, 0.25, 0.45]
+
+  if (path.length === 0) {
+    return GRAY
+  }
+  const base = BASE_COLORS[path[0]]
+  if (path.length === 1) {
+    return base
+  }
+  const amount = LIGHTEN[path[1]]
+  const color = []
+  for (let i = 0; i < 3; i++) {
+    color.push(base[i] + (1.0 - base[i]) * amount)
+  }
+  return color
+}
+
+function midpoint(a, b) {
+  return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
 }
 
 function getMidpoints(vertices) {
