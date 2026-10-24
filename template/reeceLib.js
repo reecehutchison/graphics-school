@@ -105,9 +105,30 @@ function buffer_points(gl, verticesArr, a_Position) {
  * 
  * const modelMatrix = new Matrix4() 
  * 
- * // options for transformations below!
- * modelMatrix.setTranslate(x, y, 0) // last is z... use to move up down left or right
- * 
- * 
+ * // options for transformations below! (angles are in DEGREES)
+ *
+ * // set... = start fresh (wipes whatever was in the matrix)
+ * modelMatrix.setIdentity()                            // reset to "no change"
+ * modelMatrix.setTranslate(dx, dy, dz)                 // move up down left or right (dz = 0 for 2d)
+ * modelMatrix.setRotate(degrees, axisX, axisY, axisZ)  // spin around the axis (axisX, axisY, axisZ)
+ * modelMatrix.setScale(sx, sy, sz)                     // stretch: 1 = same, 2 = double, 0.5 = half (sz = 1 for 2d)
+ *
+ * // plain = add on (stacks onto what's already there)
+ * modelMatrix.translate(dx, dy, dz)
+ * modelMatrix.rotate(degrees, axisX, axisY, axisZ)
+ * modelMatrix.scale(sx, sy, sz)
+ *
+ * // axis: set ONE of them to 1 to pick what to spin around
+ * //   0, 0, 1 -> z: flat spin on the screen (normal 2d)
+ * //   0, 1, 0 -> y: revolving door
+ * //   1, 0, 0 -> x: flips forward and back
+ *
+ * // composite: ONE set... first, then plain ones after (set then set wipes the first one!)
+ * // order: the LAST call happens to the shape FIRST
+ * modelMatrix.setTranslate(dx, dy, 0).rotate(degrees, 0, 0, 1) // spin in place, then move (the usual one)
+ * modelMatrix.setRotate(degrees, 0, 0, 1).translate(dx, dy, 0) // move, then orbit around the centre
+ *
+ * // in loops use set... so each shape starts fresh
+ *
  * gl.uniformMatrix4fv(u_ModelMatrix, false, modelMatrix.elements) // send matrix to gpu
  */
