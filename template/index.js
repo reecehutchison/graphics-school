@@ -2,9 +2,9 @@ function main() {
   let {
     gl,
     a_Position,
-    u_ModelMatrix,
-    u_FragColor
+    u_ModelMatrix
   } = setupWebGL(VS_BASIC, FS_BASIC)
+  const u_FragColor = getUniform(gl, "u_FragColor")
 
   let vertices = [0.0, 0.0]
   let n = buffer_points(gl, vertices, a_Position)
@@ -14,7 +14,7 @@ function main() {
 
   const modelMatrix = new Matrix4()
   gl.uniformMatrix4fv(u_ModelMatrix, false, modelMatrix.elements)
-  
+
   gl.uniform4f(u_FragColor, 0.0, 1.0, 0.0, 1.0)
 
   gl.drawArrays(gl.POINTS, 0, n)
