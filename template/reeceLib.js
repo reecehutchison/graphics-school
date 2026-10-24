@@ -93,6 +93,24 @@ function buffer_points(gl, verticesArr, a_Position) {
 }
 
 /**
+ * Points for a filled circle, ready for gl.TRIANGLE_FAN.
+ * Centre first (the fan's hub), then n + 1 points around the ring (last one repeats the first to close it).
+ * @param {number} cx centre x
+ * @param {number} cy centre y
+ * @param {number} r radius
+ * @param {number} n how many slices (6 = hexagon, 50 = smooth circle)
+ * @returns {number[]} flat array: cx, cy, x0, y0, x1, y1, ...
+ */
+function circlePoints(cx, cy, r, n) {
+  const vertices = [cx, cy]
+  for (let k = 0; k <= n; k++) {
+    const angle = 2 * Math.PI * k / n // radians, Math.cos and Math.sin don't use degrees
+    vertices.push(cx + r * Math.cos(angle), cy + r * Math.sin(angle))
+  }
+  return vertices
+}
+
+/**
  * Dictionary: this section includes all of the main concepts we used in class and how to 
  * use each concept as well using the WebGL library. 
  * 
