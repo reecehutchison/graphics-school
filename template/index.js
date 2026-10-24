@@ -43,7 +43,8 @@ function main() {
   gl.drawArrays(gl.POINTS, 0, n)
 
   // ------------------------------------------------------------------------------------------
-  // ANIMATION: delete steps 3 to 6 above and use this instead
+  // ANIMATION: delete steps 5 and 6 above and use this instead
+  //            (keep 3 and 4: clearColor only needs setting once, and tick reuses modelMatrix)
   // ------------------------------------------------------------------------------------------
   // let angle = 0                       // outside tick so it remembers between frames
   // function tick() {
