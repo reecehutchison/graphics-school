@@ -285,6 +285,49 @@ function randomColor() {
  * //   FSIZE = Float32Array.BYTES_PER_ELEMENT = 4
  *
  * ------------------------------------------------------------------------------------------
+ * Draw modes (the first thing you give gl.drawArrays):
+ * ------------------------------------------------------------------------------------------
+ * gl.drawArrays(mode, first, count)   // start at point `first`, use `count` points
+ *
+ * gl.POINTS          each point is its own dot (size = gl_PointSize)
+ *                    -> dots, stars, particles
+ *
+ * gl.LINES           every PAIR of points is its own line: 0-1, 2-3, 4-5 ...
+ *                    -> separate lines, grid lines, an X (needs an even count)
+ *
+ * gl.LINE_STRIP      one connected line through every point: 0-1-2-3 ... (does NOT close)
+ *                    -> zigzags, graphs, a spiral, an open path
+ *
+ * gl.LINE_LOOP       like LINE_STRIP but the last point joins back to the first
+ *                    -> OUTLINES: square outline, circle outline, star outline
+ *                       (circle outline: don't use circlePoints' centre point or you get a spoke,
+ *                        draw from first = 1)
+ *
+ * gl.TRIANGLES       every 3 points is its own triangle: 0-1-2, 3-4-5 ...
+ *                    -> single triangles, lots of separate triangles, sierpinski (count = multiple of 3)
+ *                       square = 6 points (2 triangles)
+ *
+ * gl.TRIANGLE_STRIP  each new point makes a triangle with the 2 before it: 0-1-2, 1-2-3, 2-3-4 ...
+ *                    -> squares/strips with ZIGZAG order (top left, bottom left, top right, bottom right)
+ *                       the lecture TexturedQuad uses this
+ *
+ * gl.TRIANGLE_FAN    first point is the hub, triangles fan out: 0-1-2, 0-2-3, 0-3-4 ...
+ *                    -> FILLED SHAPES: square (4 points AROUND the edge), circle / hexagon
+ *                       (circlePoints: centre first + ring), any convex polygon
+ *
+ * Which one for what:
+ *   filled square     -> TRIANGLE_FAN, 4 points going around the edge (or TRIANGLE_STRIP zigzag)
+ *   filled circle     -> TRIANGLE_FAN with circlePoints(cx, cy, r, 50)
+ *   filled polygon    -> TRIANGLE_FAN with circlePoints(cx, cy, r, sides) e.g. 6 = hexagon
+ *   triangle          -> TRIANGLES, 3 points
+ *   outline of shape  -> LINE_LOOP
+ *   open line / path  -> LINE_STRIP
+ *   separate lines    -> LINES
+ *   dots              -> POINTS
+ *
+ * Square looks like a bowtie or is missing a corner? the point ORDER is wrong for the mode
+ *
+ * ------------------------------------------------------------------------------------------
  * Transformations:
  * ------------------------------------------------------------------------------------------
  * -- Use a matrix to decide where to put the shape when you draw it!
