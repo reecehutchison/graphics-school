@@ -91,3 +91,23 @@ function buffer_points(gl, verticesArr, a_Position) {
 
   return verticesArr.length / 2
 }
+
+/**
+ * Dictionary: this section includes all of the main concepts we used in class and how to 
+ * use each concept as well using the WebGL library. 
+ * 
+ * 
+ * Colors: 
+ * 
+ * 
+ * Transformations:
+ * -- Use a matrix to decide where to put the shape when you draw it!
+ * 
+ * const modelMatrix = new Matrix4() 
+ * 
+ * // options for transformations below!
+ * modelMatrix.setTranslate(x, y, 0) // last is z... use to move up down left or right
+ * 
+ * 
+ * gl.uniformMatrix4fv(u_ModelMatrix, false, modelMatrix.elements) // send matrix to gpu
+ */
