@@ -1,6 +1,5 @@
 function main() {
   let {
-    _,
     gl,
     a_Position,
     u_ModelMatrix,
