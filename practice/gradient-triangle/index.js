@@ -3,12 +3,12 @@ function main() {
   const a_Color = getAttrib(gl, "a_Color")         // color
 
   const vertices = [
-    0.0, 0.4, 1.0, 0.0, 0.0,
-    -0.4, -0.2, 0.0, 1.0, 0.0,
-    0.4, -0.2, 0.0, 0.0, 1.0
+    0.0, 0.4, ...RED,
+    -0.4, -0.2, ...GREEN,
+    0.4, -0.2, ...BLUE
   ]
 
-  const n = buffer_interleaved(gl, vertices, [[a_Position, 2], [a_Color, 3]]) // color
+  const n = buffer_interleaved(gl, vertices, [[a_Position, 2], [a_Color, 4]]) // color
 
   gl.clearColor(0.0, 0.0, 0.0, 1.0)
   gl.clear(gl.COLOR_BUFFER_BIT)

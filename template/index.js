@@ -9,8 +9,10 @@ function main() {
     0.0, 0.0
   ]
   const n = buffer_points(gl, vertices, a_Position)                              // basic
+  
+  // Note: if you use '...RED' in your vertices, then make sure to change the 3 to 4!!!
   // const n = buffer_interleaved(gl, vertices, [[a_Position, 2], [a_Color, 3]]) // color
-
+  
   // 3. background
   gl.clearColor(0.0, 0.0, 0.0, 1.0)
   gl.clear(gl.COLOR_BUFFER_BIT)
