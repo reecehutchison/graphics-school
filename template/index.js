@@ -5,10 +5,10 @@ function main() {
   // const a_Color = getAttrib(gl, "a_Color")         // color
 
   // 2. put vertices in the buffer (basic: x, y   color: x, y, r, g, b)
-  const vertices = [
+  let vertices = [
     0.0, 0.0
   ]
-  const n = buffer_points(gl, vertices, a_Position)                              // basic
+  let n = buffer_points(gl, vertices, a_Position)                              // basic
   
   // Note: if you use '...RED' in your vertices, then make sure to change the 3 to 4!!!
   // const n = buffer_interleaved(gl, vertices, [[a_Position, 2], [a_Color, 3]]) // color
