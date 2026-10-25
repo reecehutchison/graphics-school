@@ -375,9 +375,9 @@ function randomColor() {
  * const n = buffer_interleaved(gl, vertices, [[a_Position, 2], [a_TexCoord, 2]])
  * gl.uniformMatrix4fv(u_ModelMatrix, false, new Matrix4().elements)
  *
- * loadTextures(gl, ["./puffer512.jpg", "./cat.png"], () => {
+ * loadTextures(gl, ["./puffer.jpg", "./cat.png"], () => {
  *   gl.clear(gl.COLOR_BUFFER_BIT)           // clear IN here (canvas gets wiped while the image loads)
- *   gl.uniform1i(u_Sampler, 0)              // draw with image 0 (puffer512.jpg)
+ *   gl.uniform1i(u_Sampler, 0)              // draw with image 0 (puffer.jpg)
  *   gl.drawArrays(gl.TRIANGLE_FAN, 0, n)
  *   gl.uniform1i(u_Sampler, 1)              // switch to image 1 (cat.png) for the next draw
  *   ...
@@ -392,7 +392,7 @@ function randomColor() {
  *
  * // only part of the image: use smaller u, v e.g. 0 to 0.5 = bottom left quarter
  * // tile it: u, v past 1.0 (0 to 3 = 3 copies across) + wrap gl.REPEAT
- * //   loadTextures(gl, ["./puffer512.jpg"], draw, gl.REPEAT)
+ * //   loadTextures(gl, ["./puffer.jpg"], draw, gl.REPEAT)
  * //   wrap modes (what happens past 1.0):
  * //     gl.CLAMP_TO_EDGE   stretch the edge pixels (default, any size image)
  * //     gl.REPEAT          tile it again                (power of 2 image only)
@@ -400,7 +400,7 @@ function randomColor() {
  * //   filters (what happens when it's stretched/shrunk):
  * //     gl.LINEAR          smooth/blurry (default)
  * //     gl.NEAREST         blocky/pixelated
- * //   loadTextures(gl, ["./puffer512.jpg"], draw, gl.CLAMP_TO_EDGE, gl.NEAREST)
+ * //   loadTextures(gl, ["./puffer.jpg"], draw, gl.CLAMP_TO_EDGE, gl.NEAREST)
  *
  * // what loadTextures does for you, in case it comes up:
  * //   createTexture -> pixelStorei (flip y) -> activeTexture(TEXTURE0 + k) -> bindTexture
