@@ -66,6 +66,35 @@ const FS_COLOR = `
   }
 `
 
+/**
+ * TEXTURE Vertex Shader: each point has a spot in the image (a_TexCoord) and passes it on (v_TexCoord).
+ * @type {string}
+ */
+const VS_TEX = `
+  attribute vec4 a_Position;
+  attribute vec2 a_TexCoord;
+  uniform mat4 u_ModelMatrix;
+  varying vec2 v_TexCoord;
+  void main() {
+    gl_Position = u_ModelMatrix * a_Position;
+    gl_PointSize = 10.0;
+    v_TexCoord = a_TexCoord;
+  }
+`
+
+/**
+ * TEXTURE Fragment Shader: looks up the image's color at v_TexCoord (u_Sampler = which image).
+ * @type {string}
+ */
+const FS_TEX = `
+  precision mediump float;
+  uniform sampler2D u_Sampler;
+  varying vec2 v_TexCoord;
+  void main() {
+    gl_FragColor = texture2D(u_Sampler, v_TexCoord);
+  }
+`
+
 // ------------------------------------------------------------------------------------------
 // SETUP
 // ------------------------------------------------------------------------------------------
@@ -187,6 +216,49 @@ function buffer_interleaved(gl, verticesArr, layout) {
 }
 
 // ------------------------------------------------------------------------------------------
+// TEXTURES
+// ------------------------------------------------------------------------------------------
+
+/**
+ * Load images into textures, then call onDone once they're ALL ready (images load slow / async).
+ * Image k goes in texture unit k, pick which one to draw with gl.uniform1i(u_Sampler, k).
+ *   loadTextures(gl, ["./a.png", "./b.png"], () => { ...draw in here... })
+ * Needs Live Server (opening the file directly blocks images).
+ * @param {WebGLRenderingContext} gl
+ * @param {string[]} srcs image paths (up to 8)
+ * @param {() => void} onDone runs once every image is loaded
+ * @param {number} [wrap] gl.CLAMP_TO_EDGE (default, any image size), gl.REPEAT or gl.MIRRORED_REPEAT
+ *                        (those two need a power of 2 image: 64x64, 128x128, 256x256 ...)
+ * @param {number} [filter] gl.LINEAR (default, smooth) or gl.NEAREST (pixelated)
+ */
+function loadTextures(gl, srcs, onDone, wrap = gl.CLAMP_TO_EDGE, filter = gl.LINEAR) {
+  // images are stored top row first, webgl wants bottom row first
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
+
+  let loaded = 0
+  srcs.forEach((src, unit) => {
+    const texture = gl.createTexture()
+    if (!texture) { throw new Error("Failed creating texture") }
+
+    const image = new Image()
+    image.onload = () => {
+      gl.activeTexture(gl.TEXTURE0 + unit)
+      gl.bindTexture(gl.TEXTURE_2D, texture)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap)
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image)
+
+      loaded++
+      if (loaded == srcs.length) { onDone() }
+    }
+    image.onerror = () => { throw new Error(`Couldn't load ${src} (typo? not using Live Server?)`) }
+    image.src = src
+  })
+}
+
+// ------------------------------------------------------------------------------------------
 // SHAPES
 // ------------------------------------------------------------------------------------------
 
@@ -283,6 +355,56 @@ function randomColor() {
  * //   offset = how many bytes in this attribute starts    = a_Position: 0, a_Color: FSIZE * 2
  * //   gl.vertexAttribPointer(slot, size, gl.FLOAT, false, stride, offset)
  * //   FSIZE = Float32Array.BYTES_PER_ELEMENT = 4
+ *
+ * ------------------------------------------------------------------------------------------
+ * Textures (glue an image onto a shape):
+ * ------------------------------------------------------------------------------------------
+ * -- Use VS_TEX + FS_TEX, put a (u, v) spot in the image next to each point, draw INSIDE loadTextures
+ *
+ * const { gl, a_Position, u_ModelMatrix } = setupWebGL(VS_TEX, FS_TEX)
+ * const a_TexCoord = getAttrib(gl, "a_TexCoord")
+ * const u_Sampler = getUniform(gl, "u_Sampler")
+ *
+ * const vertices = [
+ * //  x,    y,     u,   v
+ *     0.5,  0.5,   1.0, 1.0,   // top right    -> image top right
+ *     0.5, -0.5,   1.0, 0.0,   // bottom right -> image bottom right
+ *    -0.5, -0.5,   0.0, 0.0,   // bottom left  -> image bottom left
+ *    -0.5,  0.5,   0.0, 1.0    // top left     -> image top left
+ * ]
+ * const n = buffer_interleaved(gl, vertices, [[a_Position, 2], [a_TexCoord, 2]])
+ * gl.uniformMatrix4fv(u_ModelMatrix, false, new Matrix4().elements)
+ *
+ * loadTextures(gl, ["./test.png", "./cat.png"], () => {
+ *   gl.clear(gl.COLOR_BUFFER_BIT)           // clear IN here (canvas gets wiped while the image loads)
+ *   gl.uniform1i(u_Sampler, 0)              // draw with image 0 (test.png)
+ *   gl.drawArrays(gl.TRIANGLE_FAN, 0, n)
+ *   gl.uniform1i(u_Sampler, 1)              // switch to image 1 (cat.png) for the next draw
+ *   ...
+ * })
+ *
+ * // (u, v): 0, 0 = image bottom left, 1, 1 = image top right (u = across, v = up)
+ * // different image per shape/row: put all images in the list, change u_Sampler before each draw
+ * // animation: start tick() INSIDE the loadTextures callback
+ * // background white instead of your clearColor? put gl.clear inside the callback
+ * // nothing shows / black? not using Live Server, wrong path, or drew before the image loaded
+ * // image upside down? the u, v corners don't match the x, y corners
+ *
+ * // only part of the image: use smaller u, v e.g. 0 to 0.5 = bottom left quarter
+ * // tile it: u, v past 1.0 (0 to 3 = 3 copies across) + wrap gl.REPEAT
+ * //   loadTextures(gl, ["./test.png"], draw, gl.REPEAT)
+ * //   wrap modes (what happens past 1.0):
+ * //     gl.CLAMP_TO_EDGE   stretch the edge pixels (default, any size image)
+ * //     gl.REPEAT          tile it again                (power of 2 image only)
+ * //     gl.MIRRORED_REPEAT tile it flipped every time   (power of 2 image only)
+ * //   filters (what happens when it's stretched/shrunk):
+ * //     gl.LINEAR          smooth/blurry (default)
+ * //     gl.NEAREST         blocky/pixelated
+ * //   loadTextures(gl, ["./test.png"], draw, gl.CLAMP_TO_EDGE, gl.NEAREST)
+ *
+ * // what loadTextures does for you, in case it comes up:
+ * //   createTexture -> pixelStorei (flip y) -> activeTexture(TEXTURE0 + k) -> bindTexture
+ * //   -> texParameteri (filter + wrap) -> texImage2D (the image) -> uniform1i(u_Sampler, k)
  *
  * ------------------------------------------------------------------------------------------
  * Draw modes (the first thing you give gl.drawArrays):
