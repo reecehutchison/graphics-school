@@ -1,19 +1,19 @@
 function main() {
-  // 1. choose shaders: BASIC (one solid color), COLOR (gradient) or TEX (image)
+  // 1. choose shaders: basic = VS_BASIC/FS_BASIC (solid color), gradient = VS_COLOR/FS_COLOR, tex = VS_TEX/FS_TEX (image)
   const { gl, a_Position, u_ModelMatrix } = setupWebGL(VS_BASIC, FS_BASIC)
   const u_FragColor = getUniform(gl, "u_FragColor")   // basic
-  // const a_Color = getAttrib(gl, "a_Color")         // color
+  // const a_Color = getAttrib(gl, "a_Color")         // gradient
   // const a_TexCoord = getAttrib(gl, "a_TexCoord")   // tex
   // const u_Sampler = getUniform(gl, "u_Sampler")    // tex
 
-  // 2. put vertices in the buffer (basic: x, y   color: x, y, r, g, b   tex: x, y, u, v)
+  // 2. put vertices in the buffer (basic: x, y   gradient: x, y, r, g, b   tex: x, y, u, v)
   let vertices = [
     0.0, 0.0
   ]
   let n = buffer_points(gl, vertices, a_Position)                              // basic
 
   // Note: if you use '...RED' in your vertices, then make sure to change the 3 to 4!!!
-  // const n = buffer_interleaved(gl, vertices, [[a_Position, 2], [a_Color, 3]]) // color
+  // const n = buffer_interleaved(gl, vertices, [[a_Position, 2], [a_Color, 3]]) // gradient
   // const n = buffer_interleaved(gl, vertices, [[a_Position, 2], [a_TexCoord, 2]]) // tex
 
   // 3. background
