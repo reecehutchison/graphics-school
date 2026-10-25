@@ -31,7 +31,7 @@ function main() {
   gl.drawArrays(gl.POINTS, 0, n)
 
   // tex: delete 5 and 6, draw INSIDE loadTextures instead (images take time to load)
-  // loadTextures(gl, ["./test.png"], () => {
+  // loadTextures(gl, ["./puffer512.jpg"], () => {
   //   gl.clear(gl.COLOR_BUFFER_BIT)   // clear again in here or the background goes white
   //   gl.uniform1i(u_Sampler, 0)   // which image: 0 = first in the list
   //   gl.drawArrays(gl.TRIANGLE_FAN, 0, n)
