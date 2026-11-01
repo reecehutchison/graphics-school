@@ -100,10 +100,12 @@ const FS_TEX = `
 // ------------------------------------------------------------------------------------------
 
 /**
- * Setup the webGL boilerplate. Works with any shader pair (they all have a_Position and u_ModelMatrix).
- * Grab anything else the shaders have (u_FragColor, a_Color...) with getUniform / getAttrib.
- * @param {string} vs
- * @param {string} fs
+ * Setup the webGL boilerplate.
+ *   setupWebGL()             -> just canvas + gl, then makeProgram for each shader pair (template way)
+ *   setupWebGL(vs, fs)       -> old way, one shader pair for the whole program
+ *                               (grab anything else the shaders have with getUniform / getAttrib)
+ * @param {string} [vs]
+ * @param {string} [fs]
  * @returns {{
  *  canvas: HTMLCanvasElement,
  *  gl: WebGLRenderingContext,
@@ -118,6 +120,9 @@ function setupWebGL(vs, fs) {
   /** @type {WebGLRenderingContext} */
   const gl = getWebGLContext(canvas)
   if (gl == null) { throw new Error("Couldn't get gl context") }
+
+  // no shaders given = template way, makeProgram does the shaders
+  if (vs == undefined) { return { canvas, gl } }
 
   if (!initShaders(gl, vs, fs)) { throw new Error("Couldn't init shaders") }
 
@@ -199,20 +204,116 @@ function buffer_interleaved(gl, verticesArr, layout) {
   gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer)
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verticesArr), gl.STATIC_DRAW)
 
+  return verticesArr.length / pointAttributes(gl, layout)
+}
+
+/**
+ * Hook the bound buffer up to the shader slots (vertexAttribPointer + enable for each).
+ * Used by buffer_interleaved and useShape, you don't call it yourself.
+ * @param {WebGLRenderingContext} gl
+ * @param {number[][]} layout [[slot, size], ...]
+ * @returns {number} floats per point
+ */
+function pointAttributes(gl, layout) {
   // stride and offset are in BYTES, each float is 4 bytes
   const FSIZE = Float32Array.BYTES_PER_ELEMENT
   let floatsPerPoint = 0
   for (const [, size] of layout) { floatsPerPoint += size }
 
+  // unhook everything from the last shape first (might have been a different program)
+  for (let slot = 0; slot < gl.getParameter(gl.MAX_VERTEX_ATTRIBS); slot++) {
+    gl.disableVertexAttribArray(slot)
+  }
+
   // each attribute starts right after the one before it
   let offset = 0
   for (const [slot, size] of layout) {
-    gl.vertexAttribPointer(slot, size, gl.FLOAT, false, FSIZE * floatsPerPoint, FSIZE * offset)
-    gl.enableVertexAttribArray(slot)
+    if (slot >= 0) {
+      gl.vertexAttribPointer(slot, size, gl.FLOAT, false, FSIZE * floatsPerPoint, FSIZE * offset)
+      gl.enableVertexAttribArray(slot)
+    }
     offset += size
   }
 
-  return verticesArr.length / floatsPerPoint
+  return floatsPerPoint
+}
+
+// ------------------------------------------------------------------------------------------
+// PROGRAMS + SHAPES (the template way, works with one OR many shader pairs on one canvas)
+// ------------------------------------------------------------------------------------------
+
+/**
+ * Build a shader pair ONCE at the start. Reads the shaders and grabs every attribute + uniform for you:
+ *   const tex = makeProgram(gl, VS_TEX, FS_TEX)  ->  tex.a_Position, tex.a_TexCoord, tex.u_Sampler ...
+ * @param {WebGLRenderingContext} gl
+ * @param {string} vs
+ * @param {string} fs
+ * @returns {Object} { program, attributes: [[name, size], ...], a_..., u_... }
+ */
+function makeProgram(gl, vs, fs) {
+  const program = createProgram(gl, vs, fs)
+  if (!program) { throw new Error("Couldn't make program (typo in a shader? check the console)") }
+
+  const p = { program, attributes: [] }
+
+  // attributes in the order they're written = the order of the numbers in each point
+  // size: a_Position = 2 (x, y), everything else = its vec size (vec4 = 4, vec2 = 2, float = 1)
+  for (const [, type, name] of vs.matchAll(/attribute\s+(\w+)\s+(\w+)/g)) {
+    p[name] = gl.getAttribLocation(program, name)
+    if (p[name] < 0) { console.warn(`${name} is never used in the shader, so the gpu deleted it`) }
+    const size = name == "a_Position" ? 2 : (type == "float" ? 1 : Number(type.slice(-1)))
+    p.attributes.push([name, size])
+  }
+
+  for (const [, name] of (vs + fs).matchAll(/uniform\s+\w+\s+(\w+)/g)) {
+    p[name] = gl.getUniformLocation(program, name)
+    if (p[name] == null) { console.warn(`${name} is never used in the shader, so the gpu deleted it`) }
+  }
+
+  return p
+}
+
+/**
+ * Put a shape's vertices in its own buffer, tied to the program that draws it. Do this ONCE (not in tick).
+ *   basic: x, y                 makeShape(gl, basic, vertices)
+ *   grad:  x, y, r, g, b, a     makeShape(gl, grad, vertices)          (x, y, ...RED works)
+ *          x, y, r, g, b        makeShape(gl, grad, vertices, [2, 3])  (no alpha)
+ *   tex:   x, y, u, v           makeShape(gl, tex, vertices)
+ * The shape also has all its program's stuff: shape.u_ModelMatrix, shape.u_FragColor, shape.u_Sampler ...
+ * @param {WebGLRenderingContext} gl
+ * @param {Object} prog from makeProgram
+ * @param {number[]} vertices flat list of every point's numbers
+ * @param {number[]} [sizes] only if your points aren't the default above, e.g. [2, 3]
+ * @returns {Object} { ...prog, buffer, layout, n }  (n = how many points, for drawArrays)
+ */
+function makeShape(gl, prog, vertices, sizes) {
+  const buffer = gl.createBuffer()
+  if (!buffer) { throw new Error("Failed creating vertex buffer") }
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW)
+
+  const layout = prog.attributes.map(([name, size], k) => [prog[name], sizes ? sizes[k] : size])
+  let floatsPerPoint = 0
+  for (const [, size] of layout) { floatsPerPoint += size }
+
+  const shape = { ...prog, buffer, layout, n: vertices.length / floatsPerPoint }
+  useShape(gl, shape)
+  return shape
+}
+
+/**
+ * Switch to this shape's program + buffer. Call BEFORE setting its matrix/color/image and drawing.
+ *   useShape(gl, tri)
+ *   gl.uniformMatrix4fv(tri.u_ModelMatrix, false, m.elements)
+ *   gl.drawArrays(gl.TRIANGLES, 0, tri.n)
+ * @param {WebGLRenderingContext} gl
+ * @param {Object} shape from makeShape
+ */
+function useShape(gl, shape) {
+  gl.useProgram(shape.program)
+  gl.program = shape.program   // so getAttrib / getUniform still work
+  gl.bindBuffer(gl.ARRAY_BUFFER, shape.buffer)
+  pointAttributes(gl, shape.layout)
 }
 
 // ------------------------------------------------------------------------------------------
@@ -311,18 +412,28 @@ function randomColor() {
  * Dictionary: this section includes all of the main concepts we used in class and how to
  * use each concept as well using the WebGL library.
  *
+ * (examples use the template way: setupWebGL() + makeProgram + makeShape + useShape.
+ *  the old way, setupWebGL(vs, fs) + getAttrib/getUniform + buffer_points/buffer_interleaved, still works)
+ *
  * ------------------------------------------------------------------------------------------
  * Colors (plain, one color for the whole shape):
  * ------------------------------------------------------------------------------------------
- * -- Use VS_BASIC + FS_BASIC, set u_FragColor BEFORE each drawArrays
+ * -- Use VS_BASIC + FS_BASIC, points are x, y, set u_FragColor BEFORE each drawArrays
  *
- * const { gl, a_Position, u_ModelMatrix } = setupWebGL(VS_BASIC, FS_BASIC)
- * const u_FragColor = getUniform(gl, "u_FragColor")
+ * const { gl } = setupWebGL()
+ * const basic = makeProgram(gl, VS_BASIC, FS_BASIC)
+ * const square = makeShape(gl, basic, [0.5, 0.5,  0.5, -0.5,  -0.5, -0.5,  -0.5, 0.5])
  *
- * gl.uniform4f(u_FragColor, 1.0, 0.0, 0.0, 1.0)   // r, g, b, alpha as 4 numbers
- * gl.uniform4fv(u_FragColor, RED)                 // same thing but an array (v = vector)
- * gl.uniform4fv(u_FragColor, randomColor())       // random color
- * gl.uniform4f(u_FragColor, ...RED)               // spread an array into the 4 number version
+ * useShape(gl, square)
+ * gl.uniformMatrix4fv(square.u_ModelMatrix, false, new Matrix4().elements)
+ * gl.uniform4fv(square.u_FragColor, RED)
+ * gl.drawArrays(gl.TRIANGLE_FAN, 0, square.n)
+ *
+ * // ways to give the color:
+ * gl.uniform4f(square.u_FragColor, 1.0, 0.0, 0.0, 1.0)   // r, g, b, alpha as 4 numbers
+ * gl.uniform4fv(square.u_FragColor, RED)                 // same thing but an array (v = vector)
+ * gl.uniform4fv(square.u_FragColor, randomColor())       // random color
+ * gl.uniform4f(square.u_FragColor, ...RED)               // spread an array into the 4 number version
  *
  * // each value is 0.0 to 1.0 (NOT 0 to 255), alpha 1.0 = solid
  * // background color: gl.clearColor(r, g, b, a) then gl.clear(gl.COLOR_BUFFER_BIT)
@@ -333,20 +444,23 @@ function randomColor() {
  * ------------------------------------------------------------------------------------------
  * -- Use VS_COLOR + FS_COLOR, put the colors IN the buffer next to each point
  *
- * const { gl, a_Position, u_ModelMatrix } = setupWebGL(VS_COLOR, FS_COLOR)
- * const a_Color = getAttrib(gl, "a_Color")
+ * const { gl } = setupWebGL()
+ * const grad = makeProgram(gl, VS_COLOR, FS_COLOR)
  *
- * const vertices = [
- * //  x,    y,     r,   g,   b
- *     0.0,  0.5,   1.0, 0.0, 0.0,   // top: red
- *    -0.5, -0.5,   0.0, 1.0, 0.0,   // bottom left: green
- *     0.5, -0.5,   0.0, 0.0, 1.0    // bottom right: blue
- * ]
- * const n = buffer_interleaved(gl, vertices, [[a_Position, 2], [a_Color, 3]])
- * gl.drawArrays(gl.TRIANGLES, 0, n)
+ * const tri = makeShape(gl, grad, [
+ * //  x,    y,     r, g, b, a
+ *     0.0,  0.5,   ...RED,      // top: red
+ *    -0.5, -0.5,   ...GREEN,    // bottom left: green
+ *     0.5, -0.5,   ...BLUE      // bottom right: blue
+ * ])
  *
- * // a_Color is a vec4 but we only send r, g, b, the gpu fills in alpha = 1.0
- * // to use the color constants instead: [[a_Position, 2], [a_Color, 4]] and write 0.0, 0.5, ...RED
+ * useShape(gl, tri)
+ * gl.uniformMatrix4fv(tri.u_ModelMatrix, false, new Matrix4().elements)
+ * gl.drawArrays(gl.TRIANGLES, 0, tri.n)
+ *
+ * // default is 4 color numbers (r, g, b, a) so ...RED just works
+ * // typing only r, g, b (3 numbers)? tell it: makeShape(gl, grad, vertices, [2, 3])
+ * //   (the gpu fills in alpha = 1.0)
  * // the blending is done by the varying (v_Color), no code needed for it
  * // still need to send u_ModelMatrix (identity if not moving) or nothing shows up!
  *
@@ -361,25 +475,24 @@ function randomColor() {
  * ------------------------------------------------------------------------------------------
  * -- Use VS_TEX + FS_TEX, put a (u, v) spot in the image next to each point, draw INSIDE loadTextures
  *
- * const { gl, a_Position, u_ModelMatrix } = setupWebGL(VS_TEX, FS_TEX)
- * const a_TexCoord = getAttrib(gl, "a_TexCoord")
- * const u_Sampler = getUniform(gl, "u_Sampler")
+ * const { gl } = setupWebGL()
+ * const tex = makeProgram(gl, VS_TEX, FS_TEX)
  *
- * const vertices = [
+ * const pic = makeShape(gl, tex, [
  * //  x,    y,     u,   v
  *     0.5,  0.5,   1.0, 1.0,   // top right    -> image top right
  *     0.5, -0.5,   1.0, 0.0,   // bottom right -> image bottom right
  *    -0.5, -0.5,   0.0, 0.0,   // bottom left  -> image bottom left
  *    -0.5,  0.5,   0.0, 1.0    // top left     -> image top left
- * ]
- * const n = buffer_interleaved(gl, vertices, [[a_Position, 2], [a_TexCoord, 2]])
- * gl.uniformMatrix4fv(u_ModelMatrix, false, new Matrix4().elements)
+ * ])
  *
  * loadTextures(gl, ["./puffer.jpg", "./cat.png"], () => {
  *   gl.clear(gl.COLOR_BUFFER_BIT)           // clear IN here (canvas gets wiped while the image loads)
- *   gl.uniform1i(u_Sampler, 0)              // draw with image 0 (puffer.jpg)
- *   gl.drawArrays(gl.TRIANGLE_FAN, 0, n)
- *   gl.uniform1i(u_Sampler, 1)              // switch to image 1 (cat.png) for the next draw
+ *   useShape(gl, pic)
+ *   gl.uniformMatrix4fv(pic.u_ModelMatrix, false, new Matrix4().elements)
+ *   gl.uniform1i(pic.u_Sampler, 0)          // draw with image 0 (puffer.jpg)
+ *   gl.drawArrays(gl.TRIANGLE_FAN, 0, pic.n)
+ *   gl.uniform1i(pic.u_Sampler, 1)          // switch to image 1 (cat.png) for the next draw
  *   ...
  * })
  *
@@ -405,6 +518,48 @@ function randomColor() {
  * // what loadTextures does for you, in case it comes up:
  * //   createTexture -> pixelStorei (flip y) -> activeTexture(TEXTURE0 + k) -> bindTexture
  * //   -> texParameteri (filter + wrap) -> texImage2D (the image) -> uniform1i(u_Sampler, k)
+ *
+ * ------------------------------------------------------------------------------------------
+ * Mixing (basic + gradient + texture on ONE canvas):
+ * ------------------------------------------------------------------------------------------
+ * -- makeProgram each type you need, makeShape each shape with ITS program, useShape before each draw
+ *
+ * const { gl } = setupWebGL()
+ * const basic = makeProgram(gl, VS_BASIC, FS_BASIC)
+ * const grad  = makeProgram(gl, VS_COLOR, FS_COLOR)
+ * const tex   = makeProgram(gl, VS_TEX, FS_TEX)
+ *
+ * const dot = makeShape(gl, basic, [0.0, 0.8])
+ * const tri = makeShape(gl, grad,  [-0.9, -0.5, ...RED,  -0.1, -0.5, ...GREEN,  -0.5, 0.3, ...BLUE])
+ * const pic = makeShape(gl, tex,   [0.9, 0.3, 1, 1,  0.9, -0.5, 1, 0,  0.1, -0.5, 0, 0,  0.1, 0.3, 0, 1])
+ * const m = new Matrix4()
+ *
+ * function tick() {
+ *   gl.clear(gl.COLOR_BUFFER_BIT)
+ *
+ *   useShape(gl, dot)                                    // switch, THEN set its stuff, THEN draw
+ *   gl.uniformMatrix4fv(dot.u_ModelMatrix, false, m.setIdentity().elements)
+ *   gl.uniform4fv(dot.u_FragColor, YELLOW)
+ *   gl.drawArrays(gl.POINTS, 0, dot.n)
+ *
+ *   useShape(gl, tri)
+ *   gl.uniformMatrix4fv(tri.u_ModelMatrix, false, m.setIdentity().elements)
+ *   gl.drawArrays(gl.TRIANGLES, 0, tri.n)
+ *
+ *   useShape(gl, pic)
+ *   gl.uniformMatrix4fv(pic.u_ModelMatrix, false, m.setIdentity().elements)
+ *   gl.uniform1i(pic.u_Sampler, 0)
+ *   gl.drawArrays(gl.TRIANGLE_FAN, 0, pic.n)
+ *
+ *   requestAnimationFrame(tick)
+ * }
+ * loadTextures(gl, ["./puffer.jpg"], () => { tick() })   // any textures? start inside loadTextures
+ *
+ * // a shape is ALWAYS drawn with the program you made it with (can't draw pic with grad)
+ * // uniforms (matrix, color, image) belong to the program, so set them AFTER useShape
+ * // 2 shapes with the same program = 2 makeShape calls with the same prog (or 1 shape + first/count)
+ * // makeShape is setup (once), useShape is drawing (every time), never makeShape inside tick
+ * // what useShape does: gl.useProgram(program) -> bindBuffer -> vertexAttribPointer + enable for each slot
  *
  * ------------------------------------------------------------------------------------------
  * Draw modes (the first thing you give gl.drawArrays):

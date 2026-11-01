@@ -1,20 +1,15 @@
 function main() {
-  // 1. choose shaders: basic = VS_BASIC/FS_BASIC (solid color), gradient = VS_COLOR/FS_COLOR, tex = VS_TEX/FS_TEX (image)
-  const { gl, a_Position, u_ModelMatrix } = setupWebGL(VS_BASIC, FS_BASIC)
-  const u_FragColor = getUniform(gl, "u_FragColor")   // basic
-  // const a_Color = getAttrib(gl, "a_Color")         // gradient
-  // const a_TexCoord = getAttrib(gl, "a_TexCoord")   // tex
-  // const u_Sampler = getUniform(gl, "u_Sampler")    // tex
+  // 1. setup + shaders: uncomment the ones you need (can use more than one at once)
+  const { gl } = setupWebGL()
+  const basic = makeProgram(gl, VS_BASIC, FS_BASIC)   // solid color
+  // const grad = makeProgram(gl, VS_COLOR, FS_COLOR) // gradient
+  // const tex = makeProgram(gl, VS_TEX, FS_TEX)      // image
 
-  // 2. put vertices in the buffer (basic: x, y   gradient: x, y, r, g, b   tex: x, y, u, v)
-  let vertices = [
+  // 2. shapes: vertices + which shaders draw it (basic: x, y   grad: x, y, ...RED   tex: x, y, u, v)
+  const shape = makeShape(gl, basic, [
     0.0, 0.0
-  ]
-  let n = buffer_points(gl, vertices, a_Position)                              // basic
-
-  // Note: if you use '...RED' in your vertices, then make sure to change the 3 to 4!!!
-  // const n = buffer_interleaved(gl, vertices, [[a_Position, 2], [a_Color, 3]]) // gradient
-  // const n = buffer_interleaved(gl, vertices, [[a_Position, 2], [a_TexCoord, 2]]) // tex
+  ])
+  // grad with only r, g, b (no alpha)? makeShape(gl, grad, vertices, [2, 3])
 
   // 3. background
   gl.clearColor(0.0, 0.0, 0.0, 1.0)
@@ -22,30 +17,30 @@ function main() {
 
   // 4. matrix (always send one, identity = no change)
   const modelMatrix = new Matrix4()
-  gl.uniformMatrix4fv(u_ModelMatrix, false, modelMatrix.elements)
 
-  // 5. color (basic only)
-  gl.uniform4fv(u_FragColor, GREEN)
+  // 5. draw: useShape FIRST, then matrix / color / image, then drawArrays (repeat for each shape)
+  useShape(gl, shape)
+  gl.uniformMatrix4fv(shape.u_ModelMatrix, false, modelMatrix.elements)
+  gl.uniform4fv(shape.u_FragColor, GREEN)      // basic only
+  // gl.uniform1i(shape.u_Sampler, 0)          // tex only: which image (0 = first in the list)
+  gl.drawArrays(gl.POINTS, 0, shape.n)
 
-  // 6. draw
-  gl.drawArrays(gl.POINTS, 0, n)
-
-  // tex: delete 5 and 6, draw INSIDE loadTextures instead (images take time to load)
+  // tex: put step 5 inside loadTextures instead (images take time to load)
   // loadTextures(gl, ["./puffer.jpg"], () => {
   //   gl.clear(gl.COLOR_BUFFER_BIT)   // clear again in here or the background goes white
-  //   gl.uniform1i(u_Sampler, 0)   // which image: 0 = first in the list
-  //   gl.drawArrays(gl.TRIANGLE_FAN, 0, n)
+  //   ...step 5...
   // })
 
-  // animation: delete 5 and 6, use this instead (tex: call tick() inside loadTextures)
+  // animation: delete step 5, use this instead (tex: call tick() inside loadTextures)
   // let angle = 0
   // function tick() {
   //   angle = (angle + 1) % 360
   //   gl.clear(gl.COLOR_BUFFER_BIT)
+  //   useShape(gl, shape)
   //   modelMatrix.setRotate(angle, 0, 0, 1)
-  //   gl.uniformMatrix4fv(u_ModelMatrix, false, modelMatrix.elements)
-  //   gl.uniform4fv(u_FragColor, GREEN)
-  //   gl.drawArrays(gl.POINTS, 0, n)
+  //   gl.uniformMatrix4fv(shape.u_ModelMatrix, false, modelMatrix.elements)
+  //   gl.uniform4fv(shape.u_FragColor, GREEN)
+  //   gl.drawArrays(gl.POINTS, 0, shape.n)
   //   requestAnimationFrame(tick)
   // }
   // tick()
