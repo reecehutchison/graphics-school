@@ -323,21 +323,29 @@ function useShape(gl, shape) {
 /**
  * Load images into textures, then call onDone once they're ALL ready (images load slow / async).
  * Image k goes in texture unit k, pick which one to draw with gl.uniform1i(u_Sampler, k).
- *   loadTextures(gl, ["./a.png", "./b.png"], () => { ...draw in here... })
+ * Each image is its own object, same image twice with different wraps is fine:
+ *   loadTextures(gl, [
+ *     { src: "./puffer.jpg", wrap: gl.REPEAT },           // unit 0
+ *     { src: "./puffer.jpg", wrap: gl.MIRRORED_REPEAT },  // unit 1
+ *   ], () => { ...draw in here... })
+ * Just a string ("./puffer.jpg") also works = CLAMP_TO_EDGE + LINEAR.
  * Needs Live Server (opening the file directly blocks images).
  * @param {WebGLRenderingContext} gl
- * @param {string[]} srcs image paths (up to 8)
+ * @param {(string | {src: string, wrap?: number, filter?: number})[]} images (up to 8)
+ *   wrap   (past 0..1)   gl.CLAMP_TO_EDGE (default, stretch edge, any size)
+ *                        gl.REPEAT (tile)  gl.MIRRORED_REPEAT (tile flipped)  <- power of 2 image only
+ *   filter               gl.LINEAR (default, smooth) or gl.NEAREST (pixelated)
  * @param {() => void} onDone runs once every image is loaded
- * @param {number} [wrap] gl.CLAMP_TO_EDGE (default, any image size), gl.REPEAT or gl.MIRRORED_REPEAT
- *                        (those two need a power of 2 image: 64x64, 128x128, 256x256 ...)
- * @param {number} [filter] gl.LINEAR (default, smooth) or gl.NEAREST (pixelated)
  */
-function loadTextures(gl, srcs, onDone, wrap = gl.CLAMP_TO_EDGE, filter = gl.LINEAR) {
+function loadTextures(gl, images, onDone) {
   // images are stored top row first, webgl wants bottom row first
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
 
   let loaded = 0
-  srcs.forEach((src, unit) => {
+  images.forEach((img, unit) => {
+    if (typeof img == "string") { img = { src: img } }
+    const { src, wrap = gl.CLAMP_TO_EDGE, filter = gl.LINEAR } = img
+
     const texture = gl.createTexture()
     if (!texture) { throw new Error("Failed creating texture") }
 
@@ -352,7 +360,7 @@ function loadTextures(gl, srcs, onDone, wrap = gl.CLAMP_TO_EDGE, filter = gl.LIN
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image)
 
       loaded++
-      if (loaded == srcs.length) { onDone() }
+      if (loaded == images.length) { onDone() }
     }
     image.onerror = () => { throw new Error(`Couldn't load ${src} (typo? not using Live Server?)`) }
     image.src = src
@@ -504,8 +512,8 @@ function randomColor() {
  * // image upside down? the u, v corners don't match the x, y corners
  *
  * // only part of the image: use smaller u, v e.g. 0 to 0.5 = bottom left quarter
- * // tile it: u, v past 1.0 (0 to 3 = 3 copies across) + wrap gl.REPEAT
- * //   loadTextures(gl, ["./puffer.jpg"], draw, gl.REPEAT)
+ * // tile it: u, v past 1.0 (0 to 2 = 2 copies across) + a wrap on that image
+ * //   loadTextures(gl, [{ src: "./puffer.jpg", wrap: gl.REPEAT }], draw)
  * //   wrap modes (what happens past 1.0):
  * //     gl.CLAMP_TO_EDGE   stretch the edge pixels (default, any size image)
  * //     gl.REPEAT          tile it again                (power of 2 image only)
@@ -513,7 +521,14 @@ function randomColor() {
  * //   filters (what happens when it's stretched/shrunk):
  * //     gl.LINEAR          smooth/blurry (default)
  * //     gl.NEAREST         blocky/pixelated
- * //   loadTextures(gl, ["./puffer.jpg"], draw, gl.CLAMP_TO_EDGE, gl.NEAREST)
+ * //   loadTextures(gl, [{ src: "./puffer.jpg", filter: gl.NEAREST }], draw)
+ * // all 3 wraps side by side: same image 3 times, one wrap each, then uniform1i(u_Sampler, 0 / 1 / 2)
+ * //   loadTextures(gl, [
+ * //     { src: "./puffer.jpg", wrap: gl.CLAMP_TO_EDGE },    // 0
+ * //     { src: "./puffer.jpg", wrap: gl.REPEAT },           // 1
+ * //     { src: "./puffer.jpg", wrap: gl.MIRRORED_REPEAT },  // 2
+ * //   ], draw)
+ * // power-of-2 rule broken? that shape draws black (console says "not renderable")
  *
  * // what loadTextures does for you, in case it comes up:
  * //   createTexture -> pixelStorei (flip y) -> activeTexture(TEXTURE0 + k) -> bindTexture

@@ -26,7 +26,12 @@ function main() {
   gl.drawArrays(gl.POINTS, 0, shape.n)
 
   // tex: put step 5 inside loadTextures instead (images take time to load)
-  // loadTextures(gl, ["./puffer.jpg"], () => {
+  //   one object per image (image k = u_Sampler k), same image twice with different wraps is fine
+  //   wrap (what happens past 0..1):  gl.CLAMP_TO_EDGE (stretch edge)  gl.REPEAT (tile)  gl.MIRRORED_REPEAT (tile flipped)
+  //   filter (optional):              gl.LINEAR (smooth)  gl.NEAREST (pixelated)
+  // loadTextures(gl, [
+  //   { src: "./puffer.jpg", wrap: gl.CLAMP_TO_EDGE },
+  // ], () => {
   //   gl.clear(gl.COLOR_BUFFER_BIT)   // clear again in here or the background goes white
   //   ...step 5...
   // })
