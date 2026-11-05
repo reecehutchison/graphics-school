@@ -56,7 +56,7 @@ function main() {
         gl.uniformMatrix4fv(shape.u_ModelMatrix, false, modelMatrix.elements)
 
         if (j == 0) {
-          modelMatrix.rotate(angle, 0, 0, 1)
+          modelMatrix.rotate(angle, 0, 1, 0)
           gl.uniform1i(shape.u_Sampler, 0) 
           gl.uniformMatrix4fv(shape.u_ModelMatrix, false, modelMatrix.elements)
         } 
@@ -71,7 +71,7 @@ function main() {
           gl.uniformMatrix4fv(shape.u_ModelMatrix, false, modelMatrix.elements)
         }
         else {
-          modelMatrix.rotate(angle, 0, 0, 1)
+          modelMatrix.rotate(angle, 1, 0, 0)
           gl.uniform1i(shape.u_Sampler, 3)
           gl.uniformMatrix4fv(shape.u_ModelMatrix, false, modelMatrix.elements)
         }
