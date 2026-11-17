@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reece 3D</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 16px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-bottom: 12px; font-size: 14px; }
+    .group { display: flex; align-items: center; gap: 6px; }
+    kbd {
+      display: inline-block; min-width: 22px; padding: 2px 6px; text-align: center;
+      font-family: inherit; font-size: 13px; background: #f4f4f4;
+      border: 1px solid #bbb; border-bottom-width: 3px; border-radius: 5px;
+    }
+  </style>
+</head>
+<body onload="main()">
+  <div class="controls">
+    <div class="group"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</div>
+    <div class="group"><kbd>↑</kbd><kbd>↓</kbd> camera up / down</div>
+    <div class="group"><kbd>←</kbd><kbd>→</kbd> turn</div>
+    <div class="group"><kbd>=</kbd><kbd>-</kbd> fov</div>
+    <div class="group"><kbd>N</kbd><kbd>M</kbd> near</div>
+    <div class="group"><kbd>F</kbd><kbd>G</kbd> far</div>
+  </div>
+  <canvas id="webgl" width="800" height="600"></canvas>
+  <script src="./lib/webgl-utils.js"></script>
+  <script src="./lib/webgl-debug.js"></script>
+  <script src="./lib/cuon-utils.js"></script>
+  <script src="./lib/cuon-matrix.js"></script>
+  <script src="./reeceLib.js"></script>
+  <script src="index.js"></script>
+</body>
+</html>
