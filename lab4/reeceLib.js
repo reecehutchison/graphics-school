@@ -241,27 +241,6 @@ function cylinder(n) {
   return { vertices, indices }
 }
 
-/**
- * Cone, base radius 1 at y = -1, tip at y = 1 (beak, tree, hat).
- * Point 0 = base centre, 1 = tip, then the base ring.
- * @param {number} n how many slices (30 = smooth)
- * @returns {{vertices: number[], indices: number[]}}
- */
-function cone(n) {
-  const vertices = [0, -1, 0,   0, 1, 0]
-  const indices = []
-  for (let k = 0; k <= n; k++) {
-    const angle = 2 * Math.PI * k / n
-    vertices.push(Math.cos(angle), -1, Math.sin(angle))
-  }
-  for (let k = 0; k < n; k++) {
-    const p = 2 + k
-    indices.push(1, p, p + 1)
-    indices.push(0, p, p + 1)
-  }
-  return { vertices, indices }
-}
-
 // ------------------------------------------------------------------------------------------
 // COLORS (r, g, b, alpha, each 0.0 to 1.0)
 // ------------------------------------------------------------------------------------------
