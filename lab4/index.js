@@ -4,11 +4,17 @@ function main() {
   const box = makeShape(gl, cube())
   const ball = makeShape(gl, sphere(30))
   const tube = makeShape(gl, cylinder(30))
+  const pentagon = makeShape(gl, cylinder(5))
+  const tri = makeShape(gl, {
+    vertices: [0, 1, 0,   -1, -1, 0,   1, -1, 0],
+    indices: [0, 1, 2]
+  })
 
-  const cam = { eye: [0, 2, 10], at: [0, 0, 0], yaw: 0, fov: 60, near: 1, far: 100 }
+  const cam = { eye: [0, 2, 10], at: [0, 0, 0], yaw: 0, fov: 90, near: 1, far: 100 }
 
   const LIGHTBLUE = [0.45, 0.95, 1.0, 1.0]
   const BROWN = [0.55, 0.35, 0.15, 1.0]
+  const EYERIM = [0.75, 0.8, 0.95, 1.0]
 
   gl.clearColor(...LIGHTBLUE)
   gl.enable(gl.DEPTH_TEST)
@@ -25,13 +31,13 @@ function main() {
     model.setTranslate(0, -1, 0).scale(100, 0.01, 100)
     drawPart(gl, box, vp, model, GREEN)
 
-    for (let i = 0; i < 50; i ++) {
-      model.setTranslate(-10, -0.5, -100 + (i * 5)).scale(0.8, 0.8, 0.8)
+    for (let i = 0; i < 25; i ++) {
+      model.setTranslate(-10, -0.5, -50 + (i * 5)).scale(0.8, 0.8, 0.8)
       drawPart(gl, ball, vp, model, MAGENTA)
     }
 
-    for (let i = 0; i < 50; i ++) {
-      model.setTranslate(10, -0.5, -100 + (i * 5)).scale(0.8, 0.8, 0.8)
+    for (let i = 0; i < 25; i ++) {
+      model.setTranslate(10, -0.5, -50 + (i * 5)).scale(0.8, 0.8, 0.8)
       drawPart(gl, ball, vp, model, MAGENTA)
     }
 
@@ -40,6 +46,21 @@ function main() {
 
     model.setTranslate(charX, 1.0, charZ + 0.5).scale(1.8, 1.9, 1.8)
     drawPart(gl, ball, vp, model, BLUE)
+
+    model.setTranslate(charX - 1.2, 0.5, charZ + 1.8).rotate(-40, 0, 1, 0).scale(0.6, 0.5, 1)
+    drawPart(gl, tri, vp, model, RED)
+
+    model.setTranslate(charX, 0.5, charZ + 2.3).scale(0.6, 0.5, 1)
+    drawPart(gl, tri, vp, model, RED)
+
+    model.setTranslate(charX + 1.2, 0.5, charZ + 1.8).rotate(40, 0, 1, 0).scale(0.6, 0.5, 1)
+    drawPart(gl, tri, vp, model, RED)
+
+    model.setTranslate(charX - 0.6, 0.5, charZ + 2.4).rotate(-20, 0, 1, 0).scale(0.6, -0.5, 1)
+    drawPart(gl, tri, vp, model, YELLOW)
+
+    model.setTranslate(charX + 0.6, 0.5, charZ + 2.4).rotate(20, 0, 1, 0).scale(0.6, -0.5, 1)
+    drawPart(gl, tri, vp, model, YELLOW)
 
     model.setTranslate(charX, 3.7, charZ + 0.7).scale(1.2, 1.2, 1.2)
     drawPart(gl, ball, vp, model, BLUE)
@@ -94,6 +115,49 @@ function main() {
 
     model.setTranslate(charX - 3.5, 3, charZ + 1.2).rotate(90, 1, 0, 0).scale(0.8, 0.1, 0.8)
     drawPart(gl, tube, vp, model, RED)
+
+    for (const z of [charZ + 4, charZ + 1]) {
+      model.setTranslate(charX - 3.5, 3, z).rotate(-18, 0, 0, 1).rotate(90, 1, 0, 0).scale(0.3, 0.1, 0.3)
+      drawPart(gl, pentagon, vp, model, YELLOW)
+
+      for (let i = 0; i < 5; i++) {
+        model.setTranslate(charX - 3.5, 3, z).rotate(i * 72, 0, 0, 1).translate(0, 0.4, 0).scale(0.2, 0.2, 1)
+        drawPart(gl, tri, vp, model, YELLOW)
+      }
+    }
+
+    model.setTranslate(charX, 4.5, charZ + 0.7).scale(1.1, 0.5, 1.1)
+    drawPart(gl, ball, vp, model, YELLOW)
+
+    model.setTranslate(charX, 4.7, charZ + 0.7).scale(0.8, 0.8, 0.8)
+    drawPart(gl, ball, vp, model, RED)
+
+    model.setTranslate(charX, 5.6, charZ + 0.2).scale(0.5, 0.5, 0.5)
+    drawPart(gl, ball, vp, model, WHITE)
+
+    model.setTranslate(charX, 4.8, charZ + 1.6).scale(0.3, 0.4, 0.3)
+    drawPart(gl, ball, vp, model, YELLOW)
+
+    model.setTranslate(charX - 0.4, 3.9, charZ + 1.8).scale(0.3, 0.4, 0.1)
+    drawPart(gl, ball, vp, model, EYERIM)
+
+    model.setTranslate(charX + 0.4, 3.9, charZ + 1.8).scale(0.3, 0.4, 0.1)
+    drawPart(gl, ball, vp, model, EYERIM)
+
+    model.setTranslate(charX - 0.4, 3.9, charZ + 1.9).scale(0.2, 0.3, 0.1)
+    drawPart(gl, ball, vp, model, WHITE)
+
+    model.setTranslate(charX + 0.4, 3.9, charZ + 1.9).scale(0.2, 0.3, 0.1)
+    drawPart(gl, ball, vp, model, WHITE)
+
+    model.setTranslate(charX - 0.3, 3.9, charZ + 2).scale(0.1, 0.2, 0.1)
+    drawPart(gl, ball, vp, model, BLACK)
+
+    model.setTranslate(charX + 0.3, 3.9, charZ + 2).scale(0.1, 0.2, 0.1)
+    drawPart(gl, ball, vp, model, BLACK)
+
+    model.setTranslate(charX, 3.2, charZ + 1.7).scale(0.4, 0.3, 0.3).rotate(45, 0, 0, 1)
+    drawPart(gl, box, vp, model, YELLOW)
   }
 
 
@@ -119,6 +183,11 @@ function main() {
     if (key == "m") { cam.near += 0.5 }
     if (key == "f") { cam.far = Math.max(cam.far - 2, cam.near + 0.1) }
     if (key == "g") { cam.far += 2 }
+
+    if (key == "z") { charX -= STEP }
+    if (key == "x") { charX += STEP }
+    if (key == "c") { charZ -= STEP }
+    if (key == "v") { charZ += STEP }
 
     if (key.startsWith("arrow")) { ev.preventDefault() }
     draw()

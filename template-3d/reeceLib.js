@@ -1,8 +1,6 @@
 /**
- * @file reeceLib.js (3D version)
- * My WebGL graphics library that I have been developing over the semester for CS3110.
- * This copy is 3D only, solid colors only: x, y, z points, a camera, perspective, depth.
- *
+ * @file reeceLib.js (3D)
+ * My WebGL library for CS3110. 3D, solid colors.
  *
  * @author Reece Hutchison
  * @copyright 2026 Reece Hutchison
@@ -14,7 +12,7 @@
 // ------------------------------------------------------------------------------------------
 
 /**
- * 3D Vertex Shader: each point is x, y, z, one matrix (u_MvpMatrix = projection * view * model) places it.
+ * Vertex shader: position = mvp matrix * point.
  * @type {string}
  */
 const VS_3D = `
@@ -26,7 +24,7 @@ const VS_3D = `
 `
 
 /**
- * Fragment Shader: one solid color for the whole shape, set with u_FragColor.
+ * Fragment shader: one solid color.
  * @type {string}
  */
 const FS_3D = `
@@ -42,7 +40,7 @@ const FS_3D = `
 // ------------------------------------------------------------------------------------------
 
 /**
- * Setup the webGL boilerplate: canvas + gl + the shaders (VS_3D + FS_3D).
+ * Get the canvas + gl and load the shaders.
  * @returns {{ canvas: HTMLCanvasElement, gl: WebGLRenderingContext }}
  */
 function setupWebGL() {
@@ -59,7 +57,7 @@ function setupWebGL() {
 }
 
 /**
- * Get an attribute's slot number from the shaders, throws if it isn't there.
+ * Get an attribute, throws if missing.
  * @param {WebGLRenderingContext} gl
  * @param {string} name e.g. "a_Position"
  * @returns {number}
@@ -71,7 +69,7 @@ function getAttrib(gl, name) {
 }
 
 /**
- * Get a uniform's location from the shaders, throws if it isn't there.
+ * Get a uniform, throws if missing.
  * @param {WebGLRenderingContext} gl
  * @param {string} name e.g. "u_FragColor"
  * @returns {WebGLUniformLocation}
@@ -87,14 +85,11 @@ function getUniform(gl, name) {
 // ------------------------------------------------------------------------------------------
 
 /**
- * Put a shape on the gpu ONCE at the start (not in draw).
+ * Put a shape on the gpu. Call once at the start, not in draw.
  *   const ball = makeShape(gl, sphere(30))
- * Two buffers:
- *   ARRAY_BUFFER         = every point's x, y, z
- *   ELEMENT_ARRAY_BUFFER = indices, which 3 points make each triangle
  * @param {WebGLRenderingContext} gl
- * @param {{vertices: number[], indices: number[]}} shape from cube / sphere / cylinder / cone
- * @returns {Object} { buffer, indexBuffer, n, a_Position, u_MvpMatrix, u_FragColor }  (n = how many indices)
+ * @param {{vertices: number[], indices: number[]}} shape
+ * @returns {Object}
  */
 function makeShape(gl, shape) {
   const buffer = gl.createBuffer()
@@ -102,7 +97,6 @@ function makeShape(gl, shape) {
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(shape.vertices), gl.STATIC_DRAW)
 
-  // Uint16 not Uint8 (lecture code): Uint8 only reaches 255 points, a smooth sphere has way more
   const indexBuffer = gl.createBuffer()
   if (!indexBuffer) { throw new Error("Failed creating index buffer") }
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
@@ -119,13 +113,13 @@ function makeShape(gl, shape) {
 }
 
 /**
- * Draw one part of the scene.
+ * Draw one shape.
  *   model.setTranslate(0, 1, 0).scale(0.5, 0.5, 0.5)
  *   drawPart(gl, ball, vp, model, BLUE)
  * @param {WebGLRenderingContext} gl
  * @param {Object} shape from makeShape
- * @param {Matrix4} viewProj from viewProjMatrix (camera + lens)
- * @param {Matrix4} model where this part goes (translate / rotate / scale)
+ * @param {Matrix4} viewProj from viewProjMatrix
+ * @param {Matrix4} model translate / rotate / scale
  * @param {number[]} color [r, g, b, a]
  */
 function drawPart(gl, shape, viewProj, model, color) {
@@ -146,12 +140,8 @@ function drawPart(gl, shape, viewProj, model, color) {
 // ------------------------------------------------------------------------------------------
 
 /**
- * Camera -> one matrix (projection * view). Make it ONCE per frame, then give it to every drawPart.
+ * Camera + lens as one matrix. Make once per frame.
  *   const cam = { eye: [0, 3, 10], at: [0, 0, 0], fov: 30, near: 1, far: 100 }
- *   eye  = where the camera is          at   = the point it looks at
- *   fov  = how wide the lens is (degrees, bigger = wider = things look smaller)
- *   near / far = closer than near or farther than far gets cut off (both > 0)
- * aspect comes from the canvas so nothing looks stretched.
  * @param {WebGLRenderingContext} gl
  * @param {{eye: number[], at: number[], fov: number, near: number, far: number}} cam
  * @returns {Matrix4}
@@ -164,12 +154,11 @@ function viewProjMatrix(gl, cam) {
 }
 
 // ------------------------------------------------------------------------------------------
-// SHAPES (all centred on 0, 0, 0 and fit in -1..1, so scale = half the size / the radius)
-// each returns { vertices: [x, y, z, ...], indices: [...] } -> give it straight to makeShape
+// SHAPES (centred on 0, 0, 0, size -1 to 1)
 // ------------------------------------------------------------------------------------------
 
 /**
- * Cube, corners at -1 / 1 (same as the lecture HelloCube). Ground/street = cube scaled flat.
+ * Cube.
  * @returns {{vertices: number[], indices: number[]}}
  */
 function cube() {
@@ -189,9 +178,8 @@ function cube() {
 }
 
 /**
- * Sphere, radius 1. Rings top to bottom (angle a), points around each ring (angle b),
- * then every little square between 2 rings = 2 triangles.
- * @param {number} n how many slices (8 = blocky, 30 = smooth)
+ * Sphere.
+ * @param {number} n slices (30 = smooth)
  * @returns {{vertices: number[], indices: number[]}}
  */
 function sphere(n) {
@@ -215,9 +203,8 @@ function sphere(n) {
 }
 
 /**
- * Cylinder, radius 1, from y = -1 to y = 1, with caps.
- * Point 0 = bottom centre, 1 = top centre, then bottom/top pairs around the edge.
- * @param {number} n how many slices (30 = smooth)
+ * Cylinder, standing up on y.
+ * @param {number} n slices (30 = smooth)
  * @returns {{vertices: number[], indices: number[]}}
  */
 function cylinder(n) {
@@ -242,9 +229,8 @@ function cylinder(n) {
 }
 
 /**
- * Cone, base radius 1 at y = -1, tip at y = 1 (beak, tree, hat).
- * Point 0 = base centre, 1 = tip, then the base ring.
- * @param {number} n how many slices (30 = smooth)
+ * Cone, tip pointing up.
+ * @param {number} n slices (30 = smooth)
  * @returns {{vertices: number[], indices: number[]}}
  */
 function cone(n) {
@@ -263,7 +249,7 @@ function cone(n) {
 }
 
 // ------------------------------------------------------------------------------------------
-// COLORS (r, g, b, alpha, each 0.0 to 1.0)
+// COLORS (r, g, b, a from 0 to 1)
 // ------------------------------------------------------------------------------------------
 
 const RED     = [1.0, 0.0, 0.0, 1.0]
